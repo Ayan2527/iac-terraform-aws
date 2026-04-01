@@ -89,7 +89,7 @@ resource "aws_security_group" "app_sg" {
 }
 
 #Instance Creation
-resource "aws_instance" "app_server" {
+resource "aws_instance" "Application_Server" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.main.id
