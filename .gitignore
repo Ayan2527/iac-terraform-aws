@@ -1,0 +1,8 @@
+# Terraform local files — never commit these
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars
+crash.log
+override.tf
