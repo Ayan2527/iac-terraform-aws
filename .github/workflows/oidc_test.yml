@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  
 
 jobs:
-  test-oidc:
+  Authentica: 
     runs-on: ubuntu-latest
 
     # Required permissions to request the OIDC token
