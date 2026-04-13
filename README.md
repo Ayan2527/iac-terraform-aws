@@ -279,5 +279,5 @@ Always run `terraform destroy` when done testing.
 
 ## Author
 
-Built by Ayan as a DevOps learning project.
+Built by Ayan.
 Demonstrates: Terraform · GitHub Actions · AWS · OIDC · GitOps · IaC
