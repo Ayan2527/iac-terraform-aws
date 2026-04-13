@@ -15,21 +15,35 @@ on:
         description: 'Choose action'
         required: true
         default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
 
 env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   TF_WORKING_DIR: ./terraform
+  AWS_REGION: ap-south-1
+  ROLE_ARN: arn:aws:iam::000034488504:role/Github_OIDC
 
 jobs:
   terraform-validate:
     name: Terraform Validate
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-validate-session
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -52,10 +66,21 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-plan-session
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -72,34 +97,43 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color
+        run: terraform plan -no-color 2>&1 | tee plan_output.txt
         working-directory: ${{ env.TF_WORKING_DIR }}
         continue-on-error: true
 
       - name: Post plan as PR comment
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `#### Terraform Plan Result
-            \`\`\`
-            ${{ steps.plan.outputs.stdout }}
-            \`\`\`
-            `;
+            const fs = require('fs');
+            const plan = fs.readFileSync('${{ env.TF_WORKING_DIR }}/plan_output.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '\n... output truncated' : plan;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: output
+              body: `#### Terraform Plan Result\n\`\`\`\n${truncated}\n\`\`\``
             })
 
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-apply-session
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -114,13 +148,24 @@ jobs:
         run: terraform apply -auto-approve
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-  terraform-manual-apply-or-destroy :
-    name: Terraform Manual Apply
+  terraform-manual:
+    name: Terraform Manual Apply or Destroy
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && (( github.event.inputs.action == 'apply' ) || ( github.event.inputs.action == 'destroy' ))
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-manual-session
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -132,10 +177,11 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name : Terraform Destroy
+      - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve
         working-directory: ${{ env.TF_WORKING_DIR }}
