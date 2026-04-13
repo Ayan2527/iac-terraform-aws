@@ -1,0 +1,35 @@
+name: OIDC AWS Authentication Test
+
+on:
+  workflow_dispatch:  
+
+jobs:
+  test-oidc:
+    runs-on: ubuntu-latest
+
+    # Required permissions to request the OIDC token
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::000034488504:role/Github_OIDC
+          aws-region: ap-south-1
+          role-session-name: oidc-test-session
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      - name: List S3 Buckets (Optional)
+        run: aws s3 ls
+
+      - name: Print Caller ARN for Validation
+        run: |
+          echo "Caller Identity:"
+          aws sts get-caller-identity --query Arn --output text
