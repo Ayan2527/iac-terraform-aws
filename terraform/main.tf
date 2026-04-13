@@ -98,6 +98,7 @@ resource "aws_instance" "app_server" {
   tags = {
     Name        = "${var.project_name}-server"
     Environment = var.environment
+    owner       = var.owner
   }
 }
 
