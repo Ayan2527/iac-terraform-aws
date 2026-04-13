@@ -27,3 +27,8 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+variable "owner" {
+  description = "Owner of this infrastructure"
+  type        = string
+  default     = "ayan"
+}
